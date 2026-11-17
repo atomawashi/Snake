@@ -1,0 +1,1938 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autumn Snake — Лесная Змейка</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #1a1a1a;
+        }
+
+        #gameCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Контейнер для масштабирования экрана (настройка размера экрана) */
+        #viewportWrapper {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            margin: auto;
+            overflow: hidden;
+            box-shadow: 0 0 50px rgba(0,0,0,0.8);
+            transition: width 0.3s ease, height 0.3s ease, border-radius 0.3s ease;
+        }
+
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle, #2b1d14 0%, #0f0a07 100%);
+        }
+
+        /* Оверлеи интерфейса */
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Заголовок в главном меню */
+        .game-title {
+            text-align: center;
+            margin-top: 4vh;
+            font-size: clamp(2.8rem, 6vw, 5rem);
+            font-weight: 900;
+            letter-spacing: 3px;
+            color: #fff3d1;
+            text-transform: uppercase;
+            text-shadow: 
+                0 4px 0 #8c3b16,
+                0 8px 0 #4d1c06,
+                0 12px 25px rgba(0,0,0,0.65);
+            animation: titleFloat 3.5s ease-in-out infinite;
+        }
+
+        @keyframes titleFloat {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+        }
+
+        /* Кнопки главного меню по ТЗ */
+        .menu-controls {
+            position: relative;
+            width: 100%;
+            height: 220px;
+            pointer-events: none;
+        }
+
+        .btn {
+            pointer-events: auto;
+            cursor: pointer;
+            border: none;
+            outline: none;
+            font-weight: 800;
+            transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-4px) scale(1.04);
+            filter: brightness(1.08);
+        }
+
+        .btn:active {
+            transform: translateY(2px) scale(0.98);
+        }
+
+        /* Снизу посередине жёлтая кнопка Play */
+        .btn-play {
+            position: absolute;
+            bottom: 32px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(180deg, #ffe142 0%, #f5a623 55%, #d97904 100%);
+            color: #3d1e03;
+            font-size: 2rem;
+            padding: 18px 72px;
+            border-radius: 50px;
+            border: 4px solid #fff5b8;
+            box-shadow: 0 8px 0 #8f4900, 0 15px 30px rgba(0,0,0,0.6);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .btn-play:hover {
+            transform: translateX(-50%) translateY(-4px) scale(1.05);
+            box-shadow: 0 11px 0 #8f4900, 0 20px 35px rgba(255, 204, 0, 0.45);
+        }
+        .btn-play:active {
+            transform: translateX(-50%) translateY(3px) scale(0.98);
+            box-shadow: 0 4px 0 #8f4900, 0 8px 15px rgba(0,0,0,0.6);
+        }
+
+        /* Чуть выше у левого и правого краев кнопки Скинов и Настроек */
+        .btn-side {
+            position: absolute;
+            bottom: 105px;
+            background: linear-gradient(180deg, #5c8d3e 0%, #3b6322 100%);
+            color: #f9fbe7;
+            font-size: 1.2rem;
+            padding: 14px 28px;
+            border-radius: 20px;
+            border: 3px solid #a8d886;
+            box-shadow: 0 6px 0 #233d12, 0 12px 24px rgba(0,0,0,0.55);
+        }
+
+        .btn-skins {
+            left: 40px;
+            background: linear-gradient(180deg, #e76f51 0%, #b5381a 100%);
+            border-color: #f4a261;
+            box-shadow: 0 6px 0 #6b1d0b, 0 12px 24px rgba(0,0,0,0.55);
+        }
+
+        .btn-settings {
+            right: 40px;
+        }
+
+        /* Модальные окна (Настройки / Скины / Конец игры) */
+        .modal-backdrop {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 10, 5, 0.72);
+            backdrop-filter: blur(5px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+            z-index: 20;
+        }
+
+        .modal-card {
+            background: linear-gradient(160deg, #3d2415 0%, #26150b 100%);
+            border: 4px solid #d48c46;
+            border-radius: 26px;
+            padding: 30px 36px;
+            width: min(92%, 500px);
+            color: #ffedd5;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+            position: relative;
+        }
+
+        .modal-title {
+            font-size: 2rem;
+            text-align: center;
+            margin-bottom: 22px;
+            color: #ffd166;
+            text-shadow: 0 3px 0 #7c4200;
+        }
+
+        .setting-group {
+            margin-bottom: 18px;
+        }
+
+        .setting-label {
+            display: flex;
+            justify-content: space-between;
+            font-weight: 700;
+            margin-bottom: 8px;
+            font-size: 1.05rem;
+            color: #f4d5b0;
+        }
+
+        .option-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+            gap: 8px;
+        }
+
+        .opt-btn {
+            background: #4e301d;
+            border: 2px solid #7c5032;
+            color: #ebd0b3;
+            padding: 10px 8px;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.15s;
+            text-align: center;
+        }
+
+        .opt-btn:hover {
+            background: #633e26;
+        }
+
+        .opt-btn.active {
+            background: linear-gradient(180deg, #f5a623 0%, #d47a00 100%);
+            border-color: #ffe89e;
+            color: #2e1500;
+            box-shadow: 0 0 12px rgba(245, 166, 35, 0.5);
+        }
+
+        /* Сетка скинов */
+        .skins-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .skin-card {
+            background: #472b19;
+            border: 3px solid #6e4429;
+            border-radius: 16px;
+            padding: 14px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            transition: 0.15s;
+        }
+
+        .skin-card:hover {
+            transform: translateY(-2px);
+            background: #593620;
+        }
+
+        .skin-card.active {
+            border-color: #ffd166;
+            background: #693f24;
+            box-shadow: 0 0 16px rgba(255, 209, 102, 0.4);
+        }
+
+        .skin-preview {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .skin-dot {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            box-shadow: inset -2px -3px 5px rgba(0,0,0,0.4);
+        }
+
+        .modal-close {
+            width: 100%;
+            margin-top: 10px;
+            padding: 13px;
+            font-size: 1.2rem;
+            border-radius: 14px;
+            background: linear-gradient(180deg, #ffe142 0%, #e09100 100%);
+            color: #361c00;
+            border: 2px solid #fff3b0;
+            box-shadow: 0 5px 0 #8a5200;
+        }
+
+        /* Экран загрузки */
+        #loadingScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, #3b2313 0%, #170d06 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 30;
+            color: #ffedd5;
+        }
+
+        .loader-title {
+            font-size: 2.3rem;
+            font-weight: 900;
+            color: #ffd166;
+            margin-bottom: 22px;
+            letter-spacing: 2px;
+        }
+
+        .loader-bar-bg {
+            width: min(80%, 420px);
+            height: 26px;
+            background: #241409;
+            border: 3px solid #8a5632;
+            border-radius: 20px;
+            overflow: hidden;
+            padding: 3px;
+            box-shadow: inset 0 3px 8px rgba(0,0,0,0.7);
+        }
+
+        .loader-bar-fill {
+            height: 100%;
+            width: 0%;
+            border-radius: 14px;
+            background: linear-gradient(90deg, #52b788, #ffd166, #f4a261, #e76f51);
+            transition: width 0.08s linear;
+        }
+
+        .loader-tip {
+            margin-top: 14px;
+            color: #cfa982;
+            font-size: 1rem;
+        }
+
+        /* Игровой HUD */
+        #hudLayer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .hud-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 20px 28px;
+        }
+
+        .score-box {
+            background: rgba(38, 21, 11, 0.85);
+            border: 3px solid #d48c46;
+            padding: 10px 22px;
+            border-radius: 18px;
+            color: #fff3d1;
+            font-size: 1.4rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.45);
+        }
+
+        .hud-controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .zoom-hint {
+            background: rgba(38, 21, 11, 0.78);
+            border: 2px solid #8c5830;
+            color: #f4d5b0;
+            padding: 8px 14px;
+            border-radius: 12px;
+            font-size: 0.92rem;
+            font-weight: 600;
+        }
+
+        .btn-menu-back {
+            pointer-events: auto;
+            background: rgba(181, 56, 26, 0.9);
+            border: 2px solid #f4a261;
+            color: #fff;
+            padding: 9px 18px;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        /* Отсчет 3 2 1 */
+        #countdownOverlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 9rem;
+            font-weight: 900;
+            color: #ffe142;
+            text-shadow: 
+                0 6px 0 #9e4700,
+                0 14px 35px rgba(0,0,0,0.85);
+            pointer-events: none;
+            z-index: 15;
+            transition: transform 0.2s ease;
+        }
+
+        @media (max-width: 650px) {
+            .btn-side {
+                padding: 10px 16px;
+                font-size: 1rem;
+                bottom: 110px;
+            }
+            .btn-skins { left: 14px; }
+            .btn-settings { right: 14px; }
+            .btn-play {
+                font-size: 1.6rem;
+                padding: 14px 48px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div id="viewportWrapper">
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Главное меню -->
+    <div id="menuLayer" class="ui-layer">
+        <div class="game-title">SNAKE</div>
+
+        <div class="menu-controls">
+            <!-- Слева кнопка скинов -->
+            <button id="btnSkins" class="btn btn-side btn-skins">
+                <span>🎨</span> Скины
+            </button>
+
+            <!-- Снизу посередине жёлтая кнопка Play -->
+            <button id="btnPlay" class="btn btn-play">
+                Play
+            </button>
+
+            <!-- Справа на той же высоте кнопка настроек -->
+            <button id="btnSettings" class="btn btn-side btn-settings">
+                <span>⚙️</span> Настройки
+            </button>
+        </div>
+    </div>
+
+    <!-- Модальное окно Настроек -->
+    <div id="settingsModal" class="modal-backdrop hidden">
+        <div class="modal-card">
+            <div class="modal-title">Настройки</div>
+
+            <div class="setting-group">
+                <div class="setting-label">
+                    <span>Скорость змейки</span>
+                    <span id="lblSpeed">Нормальная</span>
+                </div>
+                <div class="option-row" id="optSpeed">
+                    <div class="opt-btn" data-val="6">Медленно</div>
+                    <div class="opt-btn active" data-val="10">Норма</div>
+                    <div class="opt-btn" data-val="15">Быстро</div>
+                    <div class="opt-btn" data-val="21">Турбо</div>
+                </div>
+            </div>
+
+            <div class="setting-group">
+                <div class="setting-label">
+                    <span>Размер экрана и поля</span>
+                    <span id="lblSize">Большое поле (100% экран)</span>
+                </div>
+                <div class="option-row" id="optSize">
+                    <div class="opt-btn" data-grid="36" data-screen="82">Компакт (36x36)</div>
+                    <div class="opt-btn active" data-grid="54" data-screen="100">Большой (54x54)</div>
+                    <div class="opt-btn" data-grid="80" data-screen="100">Гигант (80x80)</div>
+                </div>
+            </div>
+
+            <div class="setting-group">
+                <div class="setting-label">
+                    <span>Яблок на поле одновременно</span>
+                    <span id="lblApples">5 шт.</span>
+                </div>
+                <div class="option-row" id="optApples">
+                    <div class="opt-btn" data-val="1">1</div>
+                    <div class="opt-btn" data-val="3">3</div>
+                    <div class="opt-btn active" data-val="5">5</div>
+                    <div class="opt-btn" data-val="10">10</div>
+                    <div class="opt-btn" data-val="20">20</div>
+                </div>
+            </div>
+
+            <button id="closeSettings" class="btn modal-close">Сохранить</button>
+        </div>
+    </div>
+
+    <!-- Модальное окно Скинов -->
+    <div id="skinsModal" class="modal-backdrop hidden">
+        <div class="modal-card">
+            <div class="modal-title">Выбор скина</div>
+            <div class="skins-grid" id="skinsContainer"></div>
+            <button id="closeSkins" class="btn modal-close">Готово</button>
+        </div>
+    </div>
+
+    <!-- Экран загрузки -->
+    <div id="loadingScreen" class="hidden">
+        <div class="loader-title">Генерация осеннего леса...</div>
+        <div class="loader-bar-bg">
+            <div id="loaderFill" class="loader-bar-fill"></div>
+        </div>
+        <div class="loader-tip">Используйте колёсико мыши в игре для приближения и отдаления камеры</div>
+    </div>
+
+    <!-- Игровой интерфейс (HUD) -->
+    <div id="hudLayer" class="hidden">
+        <div class="hud-top">
+            <div class="score-box">
+                <span>🍎 <span id="scoreVal">0</span></span>
+                <span style="opacity:0.65; font-size:1.1rem;">🏆 <span id="bestVal">0</span></span>
+            </div>
+            <div class="hud-controls">
+                <div class="zoom-hint">🖱️ Колёсико: Зум (<span id="zoomVal">100%</span>) | WASD / Стрелки</div>
+                <button id="btnExitToMenu" class="btn-menu-back">В меню</button>
+            </div>
+        </div>
+        <div id="countdownOverlay" class="hidden">3</div>
+    </div>
+
+    <!-- Модальное окно Конца Игры -->
+    <div id="gameOverModal" class="modal-backdrop hidden">
+        <div class="modal-card" style="text-align: center;">
+            <div class="modal-title">Игра окончена!</div>
+            <p style="font-size: 1.3rem; margin-bottom: 10px;">Собрано яблок: <b id="finalScore" style="color:#ffd166;">0</b></p>
+            <p style="font-size: 1.05rem; color:#d4a373; margin-bottom: 24px;">Рекорд: <b id="finalBest">0</b></p>
+            <div style="display:flex; gap:12px;">
+                <button id="btnRetry" class="btn modal-close" style="margin-top:0;">Играть снова</button>
+                <button id="btnGoMenu" class="btn modal-close" style="margin-top:0; background:linear-gradient(180deg,#a86438,#6e3c1b); color:#fff; border-color:#d49b72;">В меню</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(() => {
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const viewportWrapper = document.getElementById('viewportWrapper');
+
+    // UI Элементы
+    const menuLayer = document.getElementById('menuLayer');
+    const hudLayer = document.getElementById('hudLayer');
+    const loadingScreen = document.getElementById('loadingScreen');
+    const loaderFill = document.getElementById('loaderFill');
+    const countdownOverlay = document.getElementById('countdownOverlay');
+    const settingsModal = document.getElementById('settingsModal');
+    const skinsModal = document.getElementById('skinsModal');
+    const gameOverModal = document.getElementById('gameOverModal');
+
+    const scoreVal = document.getElementById('scoreVal');
+    const bestVal = document.getElementById('bestVal');
+    const zoomVal = document.getElementById('zoomVal');
+    const finalScore = document.getElementById('finalScore');
+    const finalBest = document.getElementById('finalBest');
+
+    // Синтезатор звуков без авторских прав (Web Audio API)
+    const AudioSys = {
+        ctx: null,
+        init() {
+            if (!this.ctx) {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (AudioCtx) this.ctx = new AudioCtx();
+            }
+            if (this.ctx && this.ctx.state === 'suspended') {
+                this.ctx.resume();
+            }
+        },
+        tone(freq, type, duration, vol = 0.12, slideTo = null) {
+            if (!this.ctx) return;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+            if (slideTo) {
+                osc.frequency.exponentialRampToValueAtTime(slideTo, this.ctx.currentTime + duration);
+            }
+            gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start();
+            osc.stop(this.ctx.currentTime + duration);
+        },
+        click() { this.init(); this.tone(520, 'sine', 0.08, 0.1, 680); },
+        count(go = false) { this.init(); this.tone(go ? 780 : 440, 'triangle', go ? 0.35 : 0.18, 0.16); },
+        eat() { this.init(); this.tone(360, 'sine', 0.14, 0.16, 760); },
+        land() { this.init(); this.tone(150, 'sine', 0.09, 0.06, 75); },
+        crash() { this.init(); this.tone(220, 'sawtooth', 0.45, 0.18, 55); }
+    };
+
+    // Доступные скины змейки
+    const SKINS = [
+        {
+            id: 'emerald',
+            name: 'Лесной Изумруд',
+            top1: '#38b000',
+            top2: '#70e000',
+            belly: '#ccff33',
+            outline: '#164a00',
+            eye: '#fff176'
+        },
+        {
+            id: 'autumn',
+            name: 'Осенний Огонь',
+            top1: '#d90429',
+            top2: '#f77f00',
+            belly: '#fcbf49',
+            outline: '#59000d',
+            eye: '#ffffff'
+        },
+        {
+            id: 'azure',
+            name: 'Речной Сапфир',
+            top1: '#0077b6',
+            top2: '#00b4d8',
+            belly: '#90e0ef',
+            outline: '#03045e',
+            eye: '#ffea00'
+        },
+        {
+            id: 'amethyst',
+            name: 'Лесная Ежевика',
+            top1: '#7209b7',
+            top2: '#b5179e',
+            belly: '#f72585',
+            outline: '#3a0ca3',
+            eye: '#9ef01a'
+        },
+        {
+            id: 'gold',
+            name: 'Золотой Уж',
+            top1: '#e09f3e',
+            top2: '#ffd166',
+            belly: '#fff3b0',
+            outline: '#540b0e',
+            eye: '#ff4d6d'
+        },
+        {
+            id: 'coral',
+            name: 'Коралловый Аспид',
+            top1: '#e63946',
+            top2: '#1d3557',
+            belly: '#f1faee',
+            outline: '#111d30',
+            eye: '#ffd166'
+        }
+    ];
+
+    // Настройки игры
+    const config = {
+        speed: 10,        // Клеток в секунду
+        gridWidth: 54,    // Ширина поля (больше обычного)
+        gridHeight: 42,   // Прямоугольное большое поле посреди леса
+        screenScale: 100, // Процент экрана
+        appleCount: 5,    // Количество яблок на поле одновременно
+        skinIndex: 0
+    };
+
+    let state = 'MENU'; // MENU, LOADING, COUNTDOWN, PLAYING, GAMEOVER
+    let bestScore = Number(localStorage.getItem('autumnSnakeBest') || 0);
+    bestVal.textContent = bestScore;
+
+    // Размеры экрана
+    let W = window.innerWidth;
+    let H = window.innerHeight;
+
+    function resizeCanvas() {
+        const rect = viewportWrapper.getBoundingClientRect();
+        W = rect.width;
+        H = rect.height;
+        canvas.width = W * window.devicePixelRatio;
+        canvas.height = H * window.devicePixelRatio;
+        ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // =========================================================================
+    // ИНИЦИАЛИЗАЦИЯ НАСТРОЕК И СКИНОВ В UI
+    // =========================================================================
+    function renderSkinsUI() {
+        const container = document.getElementById('skinsContainer');
+        container.innerHTML = '';
+        SKINS.forEach((skin, idx) => {
+            const card = document.createElement('div');
+            card.className = 'skin-card' + (idx === config.skinIndex ? ' active' : '');
+            card.innerHTML = `
+                <div class="skin-preview">
+                    <div class="skin-dot" style="background:${skin.top1}; border:2px solid ${skin.outline}"></div>
+                    <div class="skin-dot" style="background:${skin.top2}; border:2px solid ${skin.outline}"></div>
+                    <div class="skin-dot" style="background:${skin.belly}; border:2px solid ${skin.outline}"></div>
+                </div>
+                <div style="font-weight:700; font-size:0.95rem; text-align:center;">${skin.name}</div>
+            `;
+            card.addEventListener('click', () => {
+                AudioSys.click();
+                config.skinIndex = idx;
+                renderSkinsUI();
+            });
+            container.appendChild(card);
+        });
+    }
+    renderSkinsUI();
+
+    // Обработчики переключателей настроек
+    function setupOptionRow(rowId, callback) {
+        const row = document.getElementById(rowId);
+        const btns = row.querySelectorAll('.opt-btn');
+        btns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                AudioSys.click();
+                btns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                callback(btn);
+            });
+        });
+    }
+
+    setupOptionRow('optSpeed', (btn) => {
+        config.speed = Number(btn.dataset.val);
+        document.getElementById('lblSpeed').textContent = btn.textContent;
+    });
+
+    setupOptionRow('optSize', (btn) => {
+        const g = Number(btn.dataset.grid);
+        const s = Number(btn.dataset.screen);
+        config.gridWidth = g;
+        config.gridHeight = Math.round(g * 0.78); // Прямоугольное поле
+        config.screenScale = s;
+        document.getElementById('lblSize').textContent = `${btn.textContent} (${s}% экран)`;
+        viewportWrapper.style.width = s + 'vw';
+        viewportWrapper.style.height = s + 'vh';
+        viewportWrapper.style.borderRadius = s < 100 ? '24px' : '0px';
+        viewportWrapper.style.border = s < 100 ? '4px solid #8a5632' : 'none';
+        setTimeout(resizeCanvas, 310);
+    });
+
+    setupOptionRow('optApples', (btn) => {
+        config.appleCount = Number(btn.dataset.val);
+        document.getElementById('lblApples').textContent = btn.dataset.val + ' шт.';
+    });
+
+    // Кнопки навигации
+    document.getElementById('btnSettings').addEventListener('click', () => {
+        AudioSys.click();
+        settingsModal.classList.remove('hidden');
+    });
+    document.getElementById('closeSettings').addEventListener('click', () => {
+        AudioSys.click();
+        settingsModal.classList.add('hidden');
+    });
+
+    document.getElementById('btnSkins').addEventListener('click', () => {
+        AudioSys.click();
+        skinsModal.classList.remove('hidden');
+    });
+    document.getElementById('closeSkins').addEventListener('click', () => {
+        AudioSys.click();
+        skinsModal.classList.add('hidden');
+    });
+
+    document.getElementById('btnPlay').addEventListener('click', () => {
+        AudioSys.click();
+        startLoadingSequence();
+    });
+
+    document.getElementById('btnExitToMenu').addEventListener('click', () => {
+        AudioSys.click();
+        returnToMenu();
+    });
+
+    document.getElementById('btnRetry').addEventListener('click', () => {
+        AudioSys.click();
+        gameOverModal.classList.add('hidden');
+        startLoadingSequence();
+    });
+
+    document.getElementById('btnGoMenu').addEventListener('click', () => {
+        AudioSys.click();
+        gameOverModal.classList.add('hidden');
+        returnToMenu();
+    });
+
+    function returnToMenu() {
+        state = 'MENU';
+        hudLayer.classList.add('hidden');
+        menuLayer.classList.remove('hidden');
+    }
+
+    // =========================================================================
+    // АНИМИРОВАННЫЙ ГЛАВНЫЙ ЭКРАН (Перспектива почти с земли)
+    // =========================================================================
+    const menuScene = {
+        leaves: [],
+        trees: [],
+        pebbles: [],
+        grassBlades: [],
+        initialized: false,
+        init() {
+            this.leaves = [];
+            const leafColors = ['#e63946', '#f4a261', '#ffb703', '#fb8500', '#52b788', '#d62828'];
+            for (let i = 0; i < 55; i++) {
+                this.leaves.push({
+                    x: Math.random(),
+                    y: Math.random(),
+                    size: 6 + Math.random() * 12,
+                    speedY: 0.04 + Math.random() * 0.08,
+                    speedX: -0.03 + Math.random() * 0.06,
+                    swayAmp: 15 + Math.random() * 25,
+                    swayFreq: 1.5 + Math.random() * 2.5,
+                    phase: Math.random() * Math.PI * 2,
+                    rot: Math.random() * Math.PI * 2,
+                    rotSpeed: (Math.random() - 0.5) * 3,
+                    color: leafColors[Math.floor(Math.random() * leafColors.length)]
+                });
+            }
+
+            // Деревья по бокам и на фоне (от горизонта к краям)
+            this.trees = [
+                // Дальний план (у горизонта)
+                { side: -1, depth: 0.12, offset: 0.14, palette: ['#ffb703', '#fb8500', '#d62828'] },
+                { side: 1,  depth: 0.14, offset: 0.15, palette: ['#52b788', '#40916c', '#ffb703'] },
+                { side: -1, depth: 0.25, offset: 0.24, palette: ['#e63946', '#d62828', '#f4a261'] },
+                { side: 1,  depth: 0.28, offset: 0.26, palette: ['#ffb703', '#f4a261', '#52b788'] },
+                // Средний план
+                { side: -1, depth: 0.46, offset: 0.34, palette: ['#52b788', '#2d6a4f', '#ffb703'] },
+                { side: 1,  depth: 0.50, offset: 0.36, palette: ['#d62828', '#e63946', '#fb8500'] },
+                // Ближний план по краям
+                { side: -1, depth: 0.78, offset: 0.45, palette: ['#fb8500', '#ffb703', '#e63946'] },
+                { side: 1,  depth: 0.82, offset: 0.46, palette: ['#e63946', '#ffb703', '#52b788'] }
+            ];
+
+            // Камешки на бежево-оранжевой земле
+            this.pebbles = [];
+            for (let i = 0; i < 45; i++) {
+                this.pebbles.push({
+                    t: Math.pow(Math.random(), 1.4), // глубина от горизонта к камере
+                    u: (Math.random() - 0.5) * 0.85,  // смещение поперек тропы
+                    size: 3 + Math.random() * 7,
+                    shade: Math.random() > 0.5 ? '#c67035' : '#efb378'
+                });
+            }
+
+            // Трава по бокам
+            this.grassBlades = [];
+            for (let i = 0; i < 110; i++) {
+                this.grassBlades.push({
+                    side: i % 2 === 0 ? -1 : 1,
+                    t: Math.pow(Math.random(), 1.2), // от горизонта к переднему плану
+                    spread: Math.random() * 0.45,
+                    h: 28 + Math.random() * 45,
+                    lean: (Math.random() - 0.5) * 0.5,
+                    color: ['#2d6a4f', '#40916c', '#52b788', '#74c69d'][Math.floor(Math.random() * 4)]
+                });
+            }
+            this.grassBlades.sort((a, b) => a.t - b.t);
+            this.initialized = true;
+        }
+    };
+
+    function drawMenuBackground(time, dt) {
+        if (!menuScene.initialized) menuScene.init();
+
+        const horizonY = H * 0.41; // Низкая точка съемки (почти с земли)
+        const vanishX = W * 0.5;
+
+        // 1. Сочное осеннее небо
+        const skyGrad = ctx.createLinearGradient(0, 0, 0, horizonY);
+        skyGrad.addColorStop(0, '#3a86ff');
+        skyGrad.addColorStop(0.55, '#8ecae6');
+        skyGrad.addColorStop(0.85, '#ffbe0b');
+        skyGrad.addColorStop(1, '#fb8500');
+        ctx.fillStyle = skyGrad;
+        ctx.fillRect(0, 0, W, horizonY + 4);
+
+        // Мягкое солнце у горизонта
+        const sunGrad = ctx.createRadialGradient(vanishX, horizonY * 0.75, 10, vanishX, horizonY * 0.75, W * 0.28);
+        sunGrad.addColorStop(0, 'rgba(255, 248, 214, 0.95)');
+        sunGrad.addColorStop(0.3, 'rgba(255, 200, 87, 0.45)');
+        sunGrad.addColorStop(1, 'rgba(255, 140, 0, 0)');
+        ctx.fillStyle = sunGrad;
+        ctx.fillRect(0, 0, W, horizonY);
+
+        // 2. Дальний лес на фоне (жёлто-красно-зелёные осенние кроны)
+        const bgForestColors = ['#2d6a4f', '#d62828', '#f77f00', '#fcbf49', '#40916c'];
+        for (let layer = 0; layer < 3; layer++) {
+            const baseY = horizonY + 4;
+            ctx.beginPath();
+            ctx.moveTo(0, baseY);
+            const puffs = 24;
+            for (let i = 0; i <= puffs; i++) {
+                const px = (W / puffs) * i;
+                const py = horizonY - 18 - layer * 10 - Math.sin(i * 1.7 + layer * 2) * 16 - Math.cos(i * 2.9) * 10;
+                ctx.lineTo(px, py);
+            }
+            ctx.lineTo(W, baseY);
+            ctx.closePath();
+            ctx.fillStyle = layer === 0 ? '#6b2d5c' : (layer === 1 ? '#b54425' : '#e07a2b');
+            ctx.fill();
+        }
+
+        // Разноцветные шапки деревьев прямо на линии горизонта
+        for (let i = 0; i < 28; i++) {
+            const frac = i / 27;
+            // Оставляем просвет по центру для тропы
+            if (Math.abs(frac - 0.5) < 0.08) continue;
+            const tx = frac * W;
+            const ty = horizonY - 6 - Math.abs(frac - 0.5) * 35;
+            const rad = 22 + Math.abs(frac - 0.5) * 45 + (i % 3) * 8;
+            ctx.fillStyle = bgForestColors[i % bgForestColors.length];
+            ctx.beginPath();
+            ctx.arc(tx, ty, rad, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // 3. Основа земли: зеленая трава по бокам
+        const grassGrad = ctx.createLinearGradient(0, horizonY, 0, H);
+        grassGrad.addColorStop(0, '#388e3c');
+        grassGrad.addColorStop(0.4, '#4cb050');
+        grassGrad.addColorStop(1, '#26692b');
+        ctx.fillStyle = grassGrad;
+        ctx.fillRect(0, horizonY, W, H - horizonY);
+
+        // 4. Бежево-оранжевая земля (тропа в перспективе под змейкой)
+        const pathTopHalf = W * 0.055;
+        const pathBotHalf = W * 0.44;
+
+        const dirtGrad = ctx.createLinearGradient(0, horizonY, 0, H);
+        dirtGrad.addColorStop(0, '#f3b778');
+        dirtGrad.addColorStop(0.45, '#e58e49');
+        dirtGrad.addColorStop(1, '#c96829');
+
+        ctx.beginPath();
+        ctx.moveTo(vanishX - pathTopHalf, horizonY);
+        ctx.lineTo(vanishX + pathTopHalf, horizonY);
+        ctx.lineTo(vanishX + pathBotHalf, H);
+        ctx.lineTo(vanishX - pathBotHalf, H);
+        ctx.closePath();
+        ctx.fillStyle = dirtGrad;
+        ctx.fill();
+
+        // Мягкая кромка между бежево-оранжевой землей и зелёной травой
+        for (let side of [-1, 1]) {
+            ctx.beginPath();
+            for (let s = 0; s <= 30; s++) {
+                const t = s / 30;
+                const y = horizonY + t * (H - horizonY);
+                const halfW = pathTopHalf + t * (pathBotHalf - pathTopHalf);
+                const wave = Math.sin(s * 1.4 + side) * (4 + t * 18);
+                const x = vanishX + side * (halfW + wave);
+                if (s === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.strokeStyle = '#3b8c40';
+            ctx.lineWidth = 14;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+        }
+
+        // Камешки и фактура на бежево-оранжевой земле
+        menuScene.pebbles.forEach(p => {
+            const y = horizonY + p.t * (H - horizonY);
+            const halfW = pathTopHalf + p.t * (pathBotHalf - pathTopHalf);
+            const x = vanishX + p.u * halfW;
+            const r = p.size * (0.25 + p.t * 0.9);
+            ctx.fillStyle = p.shade;
+            ctx.beginPath();
+            ctx.ellipse(x, y, r * 1.4, r * 0.75, 0, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        // 5. Осенние деревья по бокам (перспектива снизу вверх)
+        menuScene.trees.forEach((tree, idx) => {
+            const t = tree.depth;
+            const baseY = horizonY + t * (H - horizonY) * 0.85;
+            const pathEdge = pathTopHalf + t * (pathBotHalf - pathTopHalf);
+            const baseX = vanishX + tree.side * (pathEdge + W * tree.offset * (0.35 + t * 0.65));
+            const scale = 0.32 + t * 1.15;
+            const sway = Math.sin(time * 1.4 + idx) * 6 * scale;
+
+            // Тень от дерева на траве
+            ctx.fillStyle = 'rgba(18, 45, 20, 0.35)';
+            ctx.beginPath();
+            ctx.ellipse(baseX, baseY + 6 * scale, 55 * scale, 16 * scale, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Ствол
+            const trunkW = 24 * scale;
+            const trunkH = 195 * scale;
+            const trunkGrad = ctx.createLinearGradient(baseX - trunkW, baseY, baseX + trunkW, baseY);
+            trunkGrad.addColorStop(0, '#3d2210');
+            trunkGrad.addColorStop(0.5, '#663a1e');
+            trunkGrad.addColorStop(1, '#291509');
+            ctx.fillStyle = trunkGrad;
+            ctx.beginPath();
+            ctx.moveTo(baseX - trunkW * 0.8, baseY);
+            ctx.lineTo(baseX + trunkW * 0.8, baseY);
+            ctx.lineTo(baseX + trunkW * 0.42 + sway * 0.5, baseY - trunkH);
+            ctx.lineTo(baseX - trunkW * 0.42 + sway * 0.5, baseY - trunkH);
+            ctx.closePath();
+            ctx.fill();
+
+            // Пышная осенняя крона (желто-красно-зеленая)
+            const crownOffsets = [
+                { dx: 0, dy: -trunkH - 20 * scale, r: 68 * scale, c: tree.palette[0] },
+                { dx: -48 * scale, dy: -trunkH + 5 * scale, r: 54 * scale, c: tree.palette[1] },
+                { dx: 48 * scale, dy: -trunkH + 8 * scale, r: 52 * scale, c: tree.palette[2] },
+                { dx: -24 * scale, dy: -trunkH - 48 * scale, r: 48 * scale, c: tree.palette[2] },
+                { dx: 26 * scale, dy: -trunkH - 44 * scale, r: 46 * scale, c: tree.palette[1] }
+            ];
+
+            crownOffsets.forEach(c => {
+                const cx = baseX + c.dx + sway;
+                const cy = baseY + c.dy;
+                // Основной цвет листвы
+                ctx.fillStyle = c.c;
+                ctx.beginPath();
+                ctx.arc(cx, cy, c.r, 0, Math.PI * 2);
+                ctx.fill();
+                // Солнечный блик сверху
+                ctx.fillStyle = 'rgba(255, 245, 190, 0.22)';
+                ctx.beginPath();
+                ctx.arc(cx - c.r * 0.18, cy - c.r * 0.2, c.r * 0.65, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        });
+
+        // 6. Сочная зелёная трава по бокам (качается на ветру)
+        menuScene.grassBlades.forEach((g, idx) => {
+            const y = horizonY + g.t * (H - horizonY);
+            const pathEdge = pathTopHalf + g.t * (pathBotHalf - pathTopHalf);
+            const x = vanishX + g.side * (pathEdge + g.spread * W * 0.42);
+            const scale = 0.25 + g.t * 1.25;
+            const h = g.h * scale;
+            const w = 6 * scale;
+            const wind = Math.sin(time * 2.4 + idx * 0.5) * 8 * scale;
+
+            ctx.fillStyle = g.color;
+            ctx.beginPath();
+            ctx.moveTo(x - w, y);
+            ctx.quadraticCurveTo(x + wind * 0.4, y - h * 0.6, x + g.lean * 20 * scale + wind, y - h);
+            ctx.quadraticCurveTo(x + w + wind * 0.4, y - h * 0.5, x + w, y);
+            ctx.closePath();
+            ctx.fill();
+        });
+
+        // 7. Змейка, ползущая ПРЯМО НА ИГРОКА по бежево-оранжевой земле
+        drawApproachingSnake(time, vanishX, horizonY);
+
+        // 8. Анимированные падающие осенние листья на фоне и переднем плане
+        menuScene.leaves.forEach(leaf => {
+            leaf.y += leaf.speedY * dt;
+            leaf.x += leaf.speedX * dt;
+            leaf.rot += leaf.rotSpeed * dt;
+            if (leaf.y > 1.08) {
+                leaf.y = -0.06;
+                leaf.x = Math.random();
+            }
+            if (leaf.x < -0.05) leaf.x = 1.05;
+            if (leaf.x > 1.05) leaf.x = -0.05;
+
+            const lx = leaf.x * W + Math.sin(time * leaf.swayFreq + leaf.phase) * leaf.swayAmp;
+            const ly = leaf.y * H;
+
+            ctx.save();
+            ctx.translate(lx, ly);
+            ctx.rotate(leaf.rot);
+            ctx.scale(1, 0.65 + Math.sin(time * 3 + leaf.phase) * 0.35);
+
+            ctx.fillStyle = leaf.color;
+            ctx.beginPath();
+            ctx.moveTo(0, -leaf.size);
+            ctx.quadraticCurveTo(leaf.size * 0.9, 0, 0, leaf.size);
+            ctx.quadraticCurveTo(-leaf.size * 0.9, 0, 0, -leaf.size);
+            ctx.fill();
+
+            // Прожилка листа
+            ctx.strokeStyle = 'rgba(60, 20, 5, 0.35)';
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.moveTo(0, -leaf.size * 0.8);
+            ctx.lineTo(0, leaf.size * 1.2);
+            ctx.stroke();
+
+            ctx.restore();
+        });
+    }
+
+    // Отрисовка змейки в перспективе, ползущей на камеру
+    function drawApproachingSnake(time, vanishX, horizonY) {
+        const skin = SKINS[config.skinIndex];
+        const totalSegments = 68;
+        const startY = horizonY + (H - horizonY) * 0.08;
+        const endY = H * 0.72; // Голова крупно перед игроком, чуть выше кнопки Play
+
+        // Рисуем сегменты от хвоста вдалеке к голове вблизи
+        for (let i = 0; i < totalSegments; i++) {
+            const p = i / (totalSegments - 1); // 0 = хвост у горизонта, 1 = голова у камеры
+            const persp = Math.pow(p, 1.55);   // Перспективное увеличение
+
+            const segY = startY + persp * (endY - startY);
+            // Извилистое движение на игрока
+            const wavePhase = (1 - p) * 11 - time * 4.2;
+            const waveAmp = (1 - p * 0.55) * (18 + persp * Math.min(W, 900) * 0.16);
+            const segX = vanishX + Math.sin(wavePhase) * waveAmp;
+
+            // Толщина сегмента с учетом перспективы и сужения к хвосту
+            const tailTaper = Math.min(1, p * 4.5);
+            const radius = (5 + persp * 52) * tailTaper;
+            const lift = (i === totalSegments - 1) ? 14 : 0; // Голова чуть приподнята
+
+            // Тень под сегментом на бежево-оранжевой земле
+            ctx.fillStyle = 'rgba(70, 28, 5, 0.28)';
+            ctx.beginPath();
+            ctx.ellipse(segX, segY + radius * 0.62, radius * 1.15, radius * 0.42, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Брюшко (нижняя часть сегмента)
+            ctx.fillStyle = skin.belly;
+            ctx.beginPath();
+            ctx.ellipse(segX, segY - lift + radius * 0.14, radius * 0.96, radius * 0.75, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Спинка с объемным градиентом
+            const bodyGrad = ctx.createRadialGradient(
+                segX - radius * 0.28, segY - lift - radius * 0.32, radius * 0.1,
+                segX, segY - lift, radius
+            );
+            const baseCol = (i % 6 < 3) ? skin.top2 : skin.top1;
+            bodyGrad.addColorStop(0, skin.belly);
+            bodyGrad.addColorStop(0.28, baseCol);
+            bodyGrad.addColorStop(1, skin.outline);
+
+            ctx.fillStyle = bodyGrad;
+            ctx.beginPath();
+            ctx.ellipse(segX, segY - lift, radius, radius * 0.82, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Если это последний сегмент — рисуем детальную голову анфас (смотрит на игрока)
+            if (i === totalSegments - 1) {
+                const hx = segX;
+                const hy = segY - lift - 6 + Math.sin(time * 3.5) * 3;
+                const hr = radius * 1.15;
+
+                // Язычок, который периодически высовывается
+                const tongueCycle = Math.sin(time * 5.5);
+                if (tongueCycle > 0.1) {
+                    const tLen = (tongueCycle - 0.1) * 42;
+                    const flick = Math.sin(time * 28) * 6;
+                    ctx.strokeStyle = '#ff1e42';
+                    ctx.lineWidth = 4;
+                    ctx.lineCap = 'round';
+                    ctx.beginPath();
+                    ctx.moveTo(hx, hy + hr * 0.55);
+                    ctx.lineTo(hx + flick * 0.4, hy + hr * 0.55 + tLen);
+                    ctx.lineTo(hx - 9 + flick, hy + hr * 0.55 + tLen + 11);
+                    ctx.moveTo(hx + flick * 0.4, hy + hr * 0.55 + tLen);
+                    ctx.lineTo(hx + 9 + flick, hy + hr * 0.55 + tLen + 11);
+                    ctx.stroke();
+                }
+
+                // Форма головы
+                const headGrad = ctx.createRadialGradient(hx - hr * 0.25, hy - hr * 0.35, hr * 0.15, hx, hy, hr * 1.2);
+                headGrad.addColorStop(0, skin.top2);
+                headGrad.addColorStop(0.65, skin.top1);
+                headGrad.addColorStop(1, skin.outline);
+
+                ctx.fillStyle = headGrad;
+                ctx.beginPath();
+                ctx.ellipse(hx, hy, hr * 1.12, hr * 0.88, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Светлая мордочка снизу
+                ctx.fillStyle = skin.belly;
+                ctx.beginPath();
+                ctx.ellipse(hx, hy + hr * 0.38, hr * 0.82, hr * 0.42, 0, 0, Math.PI);
+                ctx.fill();
+
+                // Улыбка / линия пасти
+                ctx.strokeStyle = skin.outline;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(hx, hy + hr * 0.22, hr * 0.68, 0.15 * Math.PI, 0.85 * Math.PI);
+                ctx.stroke();
+
+                // Ноздри
+                ctx.fillStyle = skin.outline;
+                ctx.beginPath();
+                ctx.arc(hx - hr * 0.22, hy + hr * 0.18, 3.2, 0, Math.PI * 2);
+                ctx.arc(hx + hr * 0.22, hy + hr * 0.18, 3.2, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Выразительные глаза, смотрящие на игрока
+                for (let side of [-1, 1]) {
+                    const ex = hx + side * hr * 0.48;
+                    const ey = hy - hr * 0.16;
+                    const er = hr * 0.26;
+
+                    // Белок/радужка
+                    ctx.fillStyle = skin.eye;
+                    ctx.beginPath();
+                    ctx.arc(ex, ey, er, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.lineWidth = 2.5;
+                    ctx.strokeStyle = skin.outline;
+                    ctx.stroke();
+
+                    // Вертикальный зрачок
+                    ctx.fillStyle = '#120804';
+                    ctx.beginPath();
+                    ctx.ellipse(ex - side * 2, ey + 1, er * 0.32, er * 0.78, 0, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Живой блик
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.arc(ex - er * 0.3, ey - er * 0.3, er * 0.26, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+    }
+
+    // =========================================================================
+    // ПЕРЕХОД: ЭКРАН ЗАГРУЗКИ И ОТСЧЕТ 3 - 2 - 1
+    // =========================================================================
+    function startLoadingSequence() {
+        state = 'LOADING';
+        menuLayer.classList.add('hidden');
+        loadingScreen.classList.remove('hidden');
+        loaderFill.style.width = '0%';
+
+        let progress = 0;
+        const loadTimer = setInterval(() => {
+            progress += 8 + Math.random() * 14;
+            if (progress >= 100) {
+                progress = 100;
+                loaderFill.style.width = '100%';
+                clearInterval(loadTimer);
+                setTimeout(() => {
+                    loadingScreen.classList.add('hidden');
+                    initGameWorld();
+                    startCountdown();
+                }, 220);
+            } else {
+                loaderFill.style.width = progress + '%';
+            }
+        }, 70);
+    }
+
+    function startCountdown() {
+        state = 'COUNTDOWN';
+        hudLayer.classList.remove('hidden');
+        countdownOverlay.classList.remove('hidden');
+
+        let count = 3;
+        countdownOverlay.textContent = count;
+        AudioSys.count(false);
+
+        const timer = setInterval(() => {
+            count--;
+            if (count > 0) {
+                countdownOverlay.textContent = count;
+                countdownOverlay.style.transform = 'translate(-50%, -50%) scale(1.25)';
+                setTimeout(() => {
+                    countdownOverlay.style.transform = 'translate(-50%, -50%) scale(1)';
+                }, 120);
+                AudioSys.count(false);
+            } else if (count === 0) {
+                countdownOverlay.textContent = 'ВПЕРЁД!';
+                AudioSys.count(true);
+            } else {
+                clearInterval(timer);
+                countdownOverlay.classList.add('hidden');
+                state = 'PLAYING';
+            }
+        }, 850);
+    }
+
+    // =========================================================================
+    // ИГРОВОЙ МИР (Вид сверху: Поляна посреди леса, зум, падающие яблоки)
+    // =========================================================================
+    const CELL = 44; // Размер одной клетки в мировых координатах
+
+    const game = {
+        gridW: 54,
+        gridH: 42,
+        snake: [],
+        prevSnake: [],
+        dir: { x: 1, y: 0 },
+        inputQueue: [],
+        moveProgress: 0,
+        score: 0,
+        apples: [],
+        particles: [],
+        forestTrees: [],
+        borderGrass: [],
+        groundPebbles: [],
+        zoom: 0.95,
+        targetZoom: 0.95,
+        camX: 0,
+        camY: 0
+    };
+
+    // Управление приближением/отдалением колёсиком мышки
+    window.addEventListener('wheel', (e) => {
+        if (state !== 'PLAYING' && state !== 'COUNTDOWN') return;
+        const delta = -Math.sign(e.deltaY) * 0.12;
+        game.targetZoom = Math.max(0.32, Math.min(2.2, game.targetZoom + delta));
+        zoomVal.textContent = Math.round(game.targetZoom * 100) + '%';
+    }, { passive: true });
+
+    // Управление змейкой (WASD и Стрелки)
+    window.addEventListener('keydown', (e) => {
+        if (state !== 'PLAYING' && state !== 'COUNTDOWN') return;
+        const key = e.key.toLowerCase();
+        let newDir = null;
+        if (key === 'arrowup' || key === 'w' || key === 'ц') newDir = { x: 0, y: -1 };
+        else if (key === 'arrowdown' || key === 's' || key === 'ы') newDir = { x: 0, y: 1 };
+        else if (key === 'arrowleft' || key === 'a' || key === 'ф') newDir = { x: -1, y: 0 };
+        else if (key === 'arrowright' || key === 'd' || key === 'в') newDir = { x: 1, y: 0 };
+
+        if (newDir) {
+            e.preventDefault();
+            const lastScheduled = game.inputQueue.length > 0
+                ? game.inputQueue[game.inputQueue.length - 1]
+                : game.dir;
+            // Запрещаем разворот на 180 градусов
+            if (lastScheduled.x + newDir.x !== 0 || lastScheduled.y + newDir.y !== 0) {
+                if (game.inputQueue.length < 2) {
+                    game.inputQueue.push(newDir);
+                }
+            }
+        }
+    });
+
+    function initGameWorld() {
+        game.gridW = config.gridWidth;
+        game.gridH = config.gridHeight;
+        game.score = 0;
+        scoreVal.textContent = '0';
+
+        // Начальная позиция змейки по центру поля
+        const startX = Math.floor(game.gridW / 2);
+        const startY = Math.floor(game.gridH / 2);
+        game.snake = [
+            { x: startX, y: startY },
+            { x: startX - 1, y: startY },
+            { x: startX - 2, y: startY },
+            { x: startX - 3, y: startY }
+        ];
+        game.prevSnake = game.snake.map(s => ({ ...s }));
+        game.dir = { x: 1, y: 0 };
+        game.inputQueue = [];
+        game.moveProgress = 0;
+        game.apples = [];
+        game.particles = [];
+
+        // Начальная камера над змейкой
+        game.camX = (startX + 0.5) * CELL;
+        game.camY = (startY + 0.5) * CELL;
+        game.zoom = 0.9;
+        game.targetZoom = 0.9;
+        zoomVal.textContent = '90%';
+
+        // Генерация декоративных камешков на поле
+        game.groundPebbles = [];
+        const pebbleCount = Math.floor((game.gridW * game.gridH) * 0.08);
+        for (let i = 0; i < pebbleCount; i++) {
+            game.groundPebbles.push({
+                x: Math.random() * game.gridW * CELL,
+                y: Math.random() * game.gridH * CELL,
+                r: 3 + Math.random() * 5,
+                color: Math.random() > 0.5 ? 'rgba(168, 92, 38, 0.35)' : 'rgba(255, 208, 156, 0.35)'
+            });
+        }
+
+        // Генерация пучков травы вдоль границы прямоугольного поля
+        game.borderGrass = [];
+        const fieldW = game.gridW * CELL;
+        const fieldH = game.gridH * CELL;
+        const perimeter = (fieldW + fieldH) * 2;
+        const grassClusters = Math.floor(perimeter / 18);
+
+        for (let i = 0; i < grassClusters; i++) {
+            const side = i % 4;
+            let gx, gy;
+            if (side === 0) { gx = Math.random() * fieldW; gy = -4 + (Math.random() - 0.5) * 14; }
+            else if (side === 1) { gx = Math.random() * fieldW; gy = fieldH + 4 + (Math.random() - 0.5) * 14; }
+            else if (side === 2) { gx = -4 + (Math.random() - 0.5) * 14; gy = Math.random() * fieldH; }
+            else { gx = fieldW + 4 + (Math.random() - 0.5) * 14; gy = Math.random() * fieldH; }
+
+            game.borderGrass.push({
+                x: gx,
+                y: gy,
+                r: 10 + Math.random() * 14,
+                color: ['#2d6a4f', '#40916c', '#52b788'][i % 3]
+            });
+        }
+
+        // Генерация густого осеннего леса вокруг прямоугольной поляны
+        game.forestTrees = [];
+        const margin = 950; // Толщина леса вокруг поля
+        const treeColors = [
+            { main: '#e63946', light: '#ff758f', dark: '#9e1926' }, // Красный клён
+            { main: '#f4a261', light: '#ffca99', dark: '#b55d19' }, // Оранжевый
+            { main: '#ffb703', light: '#ffe169', dark: '#c28400' }, // Золотисто-жёлтый
+            { main: '#40916c', light: '#74c69d', dark: '#1b4332' }, // Лесной зелёный
+            { main: '#fb8500', light: '#ffb703', dark: '#9c4f00' }  // Янтарный
+        ];
+
+        for (let x = -margin; x < fieldW + margin; x += 68) {
+            for (let y = -margin; y < fieldH + margin; y += 68) {
+                // Пропускаем само игровое поле
+                if (x > -38 && x < fieldW + 38 && y > -38 && y < fieldH + 38) continue;
+
+                const tx = x + (Math.random() - 0.5) * 44;
+                const ty = y + (Math.random() - 0.5) * 44;
+                const rad = 32 + Math.random() * 24;
+                const pal = treeColors[Math.floor(Math.random() * treeColors.length)];
+
+                game.forestTrees.push({
+                    x: tx,
+                    y: ty,
+                    r: rad,
+                    pal,
+                    phase: Math.random() * Math.PI * 2
+                });
+            }
+        }
+
+        // Спавним стартовые яблоки (падают с неба)
+        for (let i = 0; i < config.appleCount; i++) {
+            spawnApple(i * 45);
+        }
+    }
+
+    function spawnApple(extraHeight = 0) {
+        let attempts = 0;
+        while (attempts < 200) {
+            attempts++;
+            const ax = Math.floor(Math.random() * game.gridW);
+            const ay = Math.floor(Math.random() * game.gridH);
+
+            const onSnake = game.snake.some(s => s.x === ax && s.y === ay);
+            const onApple = game.apples.some(a => a.x === ax && a.y === ay);
+            if (!onSnake && !onApple) {
+                game.apples.push({
+                    x: ax,
+                    y: ay,
+                    z: 280 + extraHeight + Math.random() * 80, // Высота в небе
+                    vz: 0,
+                    bounced: false,
+                    pulse: Math.random() * Math.PI * 2
+                });
+                return;
+            }
+        }
+    }
+
+    function updateGame(dt, time) {
+        // Плавный зум камеры
+        game.zoom += (game.targetZoom - game.zoom) * Math.min(1, dt * 8);
+
+        // Обновление физики падающих с неба яблок
+        game.apples.forEach(a => {
+            if (a.z > 0 || a.vz !== 0) {
+                a.vz -= 680 * dt; // Гравитация
+                a.z += a.vz * dt;
+                if (a.z <= 0) {
+                    a.z = 0;
+                    if (!a.bounced && Math.abs(a.vz) > 90) {
+                        a.vz = -a.vz * 0.28; // Лёгкий отскок от земли при падении
+                        a.bounced = true;
+                        AudioSys.land();
+                    } else {
+                        a.vz = 0;
+                    }
+                }
+            }
+            a.pulse += dt * 3;
+        });
+
+        // Частицы при поедании яблок
+        for (let i = game.particles.length - 1; i >= 0; i--) {
+            const p = game.particles[i];
+            p.x += p.vx * dt;
+            p.y += p.vy * dt;
+            p.life -= dt;
+            if (p.life <= 0) game.particles.splice(i, 1);
+        }
+
+        if (state !== 'PLAYING') return;
+
+        // Плавное продвижение змейки между клетками
+        game.moveProgress += config.speed * dt;
+
+        while (game.moveProgress >= 1) {
+            game.moveProgress -= 1;
+
+            if (game.inputQueue.length > 0) {
+                game.dir = game.inputQueue.shift();
+            }
+
+            const newHead = {
+                x: game.snake[0].x + game.dir.x,
+                y: game.snake[0].y + game.dir.y
+            };
+
+            // Проверка столкновения с границей леса
+            if (
+                newHead.x < 0 || newHead.x >= game.gridW ||
+                newHead.y < 0 || newHead.y >= game.gridH
+            ) {
+                triggerGameOver();
+                return;
+            }
+
+            // Проверка столкновения с собственным хвостом
+            for (let i = 0; i < game.snake.length - 1; i++) {
+                if (game.snake[i].x === newHead.x && game.snake[i].y === newHead.y) {
+                    triggerGameOver();
+                    return;
+                }
+            }
+
+            // Сохраняем предыдущее состояние для плавной интерполяции
+            game.prevSnake = game.snake.map(s => ({ ...s }));
+            game.snake.unshift(newHead);
+
+            // Проверка поедания яблока (можно съесть, когда оно уже упало или почти у земли)
+            const appleIdx = game.apples.findIndex(a => a.x === newHead.x && a.y === newHead.y && a.z < 65);
+            if (appleIdx !== -1) {
+                const eaten = game.apples[appleIdx];
+                game.apples.splice(appleIdx, 1);
+                game.score++;
+                scoreVal.textContent = game.score;
+                if (game.score > bestScore) {
+                    bestScore = game.score;
+                    bestVal.textContent = bestScore;
+                    localStorage.setItem('autumnSnakeBest', bestScore);
+                }
+                AudioSys.eat();
+
+                // Сочные брызги при поедании
+                const px = (eaten.x + 0.5) * CELL;
+                const py = (eaten.y + 0.5) * CELL;
+                for (let k = 0; k < 12; k++) {
+                    const ang = Math.random() * Math.PI * 2;
+                    const spd = 40 + Math.random() * 110;
+                    game.particles.push({
+                        x: px,
+                        y: py,
+                        vx: Math.cos(ang) * spd,
+                        vy: Math.sin(ang) * spd,
+                        r: 3 + Math.random() * 4,
+                        color: k % 2 === 0 ? '#e63946' : '#ffe169',
+                        life: 0.35 + Math.random() * 0.2
+                    });
+                }
+
+                // Дублируем последний элемент prevSnake, чтобы хвост плавно оставался на месте при росте
+                game.prevSnake.push({ ...game.prevSnake[game.prevSnake.length - 1] });
+
+                // Поддерживаем заданное в настройках количество яблок на поле
+                while (game.apples.length < config.appleCount) {
+                    spawnApple();
+                }
+            } else {
+                game.snake.pop();
+            }
+        }
+
+        // Вычисляем плавную позицию головы для следования камеры
+        const h0 = game.prevSnake[0] || game.snake[0];
+        const h1 = game.snake[0];
+        const interpHeadX = (h0.x + (h1.x - h0.x) * game.moveProgress + 0.5) * CELL;
+        const interpHeadY = (h0.y + (h1.y - h0.y) * game.moveProgress + 0.5) * CELL;
+
+        game.camX += (interpHeadX - game.camX) * Math.min(1, dt * 7);
+        game.camY += (interpHeadY - game.camY) * Math.min(1, dt * 7);
+    }
+
+    function triggerGameOver() {
+        AudioSys.crash();
+        state = 'GAMEOVER';
+        finalScore.textContent = game.score;
+        finalBest.textContent = bestScore;
+        gameOverModal.classList.remove('hidden');
+    }
+
+    // =========================================================================
+    // ОТРИСОВКА ИГРОВОГО ПОЛЯ (Вид сверху)
+    // =========================================================================
+    function drawGameWorld(time) {
+        // Фон густой травы за пределами поля
+        ctx.fillStyle = '#2d6a4f';
+        ctx.fillRect(0, 0, W, H);
+
+        ctx.save();
+        // Трансформация камеры (центрирование + зум мышкой)
+        ctx.translate(W / 2, H / 2);
+        ctx.scale(game.zoom, game.zoom);
+        ctx.translate(-game.camX, -game.camY);
+
+        // Видимая область камеры (для быстрой отрисовки на гигантских картах)
+        const halfViewW = (W / 2) / game.zoom + 140;
+        const halfViewH = (H / 2) / game.zoom + 140;
+        const minX = game.camX - halfViewW;
+        const maxX = game.camX + halfViewW;
+        const minY = game.camY - halfViewH;
+        const maxY = game.camY + halfViewH;
+
+        const fieldW = game.gridW * CELL;
+        const fieldH = game.gridH * CELL;
+
+        // 1. Бежево-оранжевое прямоугольное поле посреди леса
+        const dirtGrad = ctx.createLinearGradient(0, 0, fieldW, fieldH);
+        dirtGrad.addColorStop(0, '#e8a568');
+        dirtGrad.addColorStop(0.5, '#df8f49');
+        dirtGrad.addColorStop(1, '#cf7932');
+        ctx.fillStyle = dirtGrad;
+        ctx.fillRect(0, 0, fieldW, fieldH);
+
+        // Мягкая шахматная сетка только для видимых клеток поля
+        const startCol = Math.max(0, Math.floor(minX / CELL));
+        const endCol = Math.min(game.gridW - 1, Math.ceil(maxX / CELL));
+        const startRow = Math.max(0, Math.floor(minY / CELL));
+        const endRow = Math.min(game.gridH - 1, Math.ceil(maxY / CELL));
+
+        ctx.fillStyle = 'rgba(184, 96, 33, 0.16)';
+        for (let r = startRow; r <= endRow; r++) {
+            for (let c = startCol; c <= endCol; c++) {
+                if ((r + c) % 2 === 0) {
+                    ctx.fillRect(c * CELL, r * CELL, CELL, CELL);
+                }
+            }
+        }
+
+        // Декоративные камешки на земле
+        game.groundPebbles.forEach(p => {
+            if (p.x < minX || p.x > maxX || p.y < minY || p.y > maxY) return;
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        // Внутренняя тень от травы по периметру поля
+        ctx.strokeStyle = 'rgba(40, 20, 5, 0.35)';
+        ctx.lineWidth = 10;
+        ctx.strokeRect(0, 0, fieldW, fieldH);
+
+        // 2. Зелёная трава по кромке поля
+        game.borderGrass.forEach(g => {
+            if (g.x < minX || g.x > maxX || g.y < minY || g.y > maxY) return;
+            ctx.fillStyle = g.color;
+            ctx.beginPath();
+            ctx.arc(g.x, g.y, g.r, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        // 3. Тени от падающих яблок (рисуются на земле под змейкой и яблоками)
+        game.apples.forEach(a => {
+            const ax = (a.x + 0.5) * CELL;
+            const ay = (a.y + 0.5) * CELL;
+            if (ax < minX || ax > maxX || ay < minY || ay > maxY) return;
+
+            const heightFactor = Math.max(0.22, 1 - a.z / 380);
+            const shadowRad = (CELL * 0.36) * heightFactor;
+            const shadowAlpha = 0.12 + 0.38 * heightFactor;
+
+            ctx.fillStyle = `rgba(35, 15, 2, ${shadowAlpha})`;
+            ctx.beginPath();
+            ctx.ellipse(ax, ay + 6, shadowRad * 1.15, shadowRad * 0.75, 0, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        // 4. Анимированная змейка (плавная интерполяция сегментов)
+        drawTopDownSnake(time);
+
+        // 5. Сами яблоки (падают сверху вниз по оси Z)
+        game.apples.forEach(a => {
+            const ax = (a.x + 0.5) * CELL;
+            const ay = (a.y + 0.5) * CELL - a.z; // Сдвиг вверх пока яблоко летит с неба
+            if (ax < minX - 100 || ax > maxX + 100 || ay < minY - 300 || ay > maxY + 100) return;
+
+            // Когда яблоко высоко в небе, оно чуть крупнее (эффект приближения к камере сверху)
+            const perspectiveScale = 1 + (a.z / 320) * 0.45 + (a.z === 0 ? Math.sin(a.pulse) * 0.04 : 0);
+            const r = CELL * 0.36 * perspectiveScale;
+
+            ctx.save();
+            ctx.translate(ax, ay);
+
+            // Тело яблока
+            const appleGrad = ctx.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.1, 0, 0, r);
+            appleGrad.addColorStop(0, '#ff758f');
+            appleGrad.addColorStop(0.35, '#e63946');
+            appleGrad.addColorStop(1, '#800f2f');
+
+            ctx.fillStyle = appleGrad;
+            ctx.beginPath();
+            ctx.arc(0, 0, r, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Черешок
+            ctx.strokeStyle = '#5c3317';
+            ctx.lineWidth = 3 * perspectiveScale;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(0, -r * 0.65);
+            ctx.quadraticCurveTo(r * 0.2, -r * 1.15, r * 0.35, -r * 1.05);
+            ctx.stroke();
+
+            // Зеленый листик
+            ctx.fillStyle = '#70e000';
+            ctx.beginPath();
+            ctx.ellipse(r * 0.25, -r * 0.9, r * 0.32, r * 0.16, -0.4, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        });
+
+        // 6. Частицы
+        game.particles.forEach(p => {
+            ctx.fillStyle = p.color;
+            ctx.globalAlpha = Math.max(0, p.life * 2);
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        });
+
+        // 7. Осенние деревья вокруг поля (с тенями и покачиванием крон)
+        game.forestTrees.forEach(t => {
+            if (t.x < minX || t.x > maxX || t.y < minY || t.y > maxY) return;
+            const swayX = Math.sin(time * 1.6 + t.phase) * 3.5;
+            const swayY = Math.cos(time * 1.3 + t.phase) * 3.5;
+
+            // Тень от кроны дерева
+            ctx.fillStyle = 'rgba(12, 28, 16, 0.42)';
+            ctx.beginPath();
+            ctx.arc(t.x + 10, t.y + 12, t.r * 1.02, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Основная шапка кроны
+            ctx.fillStyle = t.pal.dark;
+            ctx.beginPath();
+            ctx.arc(t.x + swayX, t.y + swayY, t.r, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = t.pal.main;
+            ctx.beginPath();
+            ctx.arc(t.x - t.r * 0.1 + swayX, t.y - t.r * 0.1 + swayY, t.r * 0.84, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Верхушка кроны на солнце
+            ctx.fillStyle = t.pal.light;
+            ctx.beginPath();
+            ctx.arc(t.x - t.r * 0.24 + swayX, t.y - t.r * 0.24 + swayY, t.r * 0.46, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        ctx.restore();
+    }
+
+    function drawTopDownSnake(time) {
+        const skin = SKINS[config.skinIndex];
+        const pts = [];
+
+        for (let i = 0; i < game.snake.length; i++) {
+            const prev = game.prevSnake[i] || game.snake[i];
+            const curr = game.snake[i];
+            const ix = (prev.x + (curr.x - prev.x) * game.moveProgress + 0.5) * CELL;
+            const iy = (prev.y + (curr.y - prev.y) * game.moveProgress + 0.5) * CELL;
+            pts.push({ x: ix, y: iy });
+        }
+
+        // Тень под всей змейкой
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        for (let i = pts.length - 1; i >= 0; i--) {
+            const taper = i === pts.length - 1 ? 0.52 : (i === pts.length - 2 ? 0.75 : 1);
+            const rad = (CELL * 0.42) * taper;
+            ctx.fillStyle = 'rgba(40, 18, 4, 0.26)';
+            ctx.beginPath();
+            ctx.arc(pts[i].x, pts[i].y + 6, rad * 1.05, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Отрисовка гладкого тела от хвоста к голове
+        const subSteps = 5;
+        for (let i = pts.length - 1; i > 0; i--) {
+            const p1 = pts[i];
+            const p0 = pts[i - 1];
+            for (let s = 0; s <= subSteps; s++) {
+                const f = s / subSteps;
+                const x = p1.x + (p0.x - p1.x) * f;
+                const y = p1.y + (p0.y - p1.y) * f;
+                const idxFloat = i - f;
+                const tailRatio = Math.min(1, (pts.length - idxFloat) / 2.5);
+                // Легкая синусоидальная волна вдоль тела при ползании
+                const slitherOffset = Math.sin(idxFloat * 1.4 - time * 9) * 2.2;
+                const nx = -(p0.y - p1.y);
+                const ny = (p0.x - p1.x);
+                const len = Math.hypot(nx, ny) || 1;
+                const wx = x + (nx / len) * slitherOffset;
+                const wy = y + (ny / len) * slitherOffset;
+
+                const r = (CELL * 0.41) * (0.45 + 0.55 * tailRatio);
+
+                // Контур
+                ctx.fillStyle = skin.outline;
+                ctx.beginPath();
+                ctx.arc(wx, wy, r + 2.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Основной цвет чешуи
+                ctx.fillStyle = Math.floor(idxFloat * 2) % 2 === 0 ? skin.top1 : skin.top2;
+                ctx.beginPath();
+                ctx.arc(wx, wy, r, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Полоска на спинке
+                ctx.fillStyle = skin.belly;
+                ctx.beginPath();
+                ctx.arc(wx, wy, r * 0.42, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // Голова змейки с глазами и язычком
+        const head = pts[0];
+        const neck = pts[1] || { x: head.x - game.dir.x, y: head.y - game.dir.y };
+        const angle = Math.atan2(head.y - neck.y, head.x - neck.x);
+        const hr = CELL * 0.46;
+
+        ctx.save();
+        ctx.translate(head.x, head.y);
+        ctx.rotate(angle);
+
+        // Анимированный язычок
+        if (Math.sin(time * 7) > 0) {
+            const tOut = 10 + Math.sin(time * 24) * 4;
+            ctx.strokeStyle = '#ff1e42';
+            ctx.lineWidth = 2.6;
+            ctx.beginPath();
+            ctx.moveTo(hr * 0.8, 0);
+            ctx.lineTo(hr + tOut, 0);
+            ctx.lineTo(hr + tOut + 5, -5);
+            ctx.moveTo(hr + tOut, 0);
+            ctx.lineTo(hr + tOut + 5, 5);
+            ctx.stroke();
+        }
+
+        // Форма головы
+        ctx.fillStyle = skin.outline;
+        ctx.beginPath();
+        ctx.ellipse(2, 0, hr * 1.15 + 2.5, hr * 0.95 + 2.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = skin.top1;
+        ctx.beginPath();
+        ctx.ellipse(2, 0, hr * 1.15, hr * 0.95, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Глаза
+        for (let side of [-1, 1]) {
+            const ex = hr * 0.25;
+            const ey = side * hr * 0.56;
+            ctx.fillStyle = skin.eye;
+            ctx.beginPath();
+            ctx.arc(ex, ey, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = skin.outline;
+            ctx.lineWidth = 1.8;
+            ctx.stroke();
+
+            ctx.fillStyle = '#111';
+            ctx.beginPath();
+            ctx.arc(ex + 1.8, ey, 2.8, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        ctx.restore();
+    }
+
+    // =========================================================================
+    // ГЛАВНЫЙ ЦИКЛ АНИМАЦИИ
+    // =========================================================================
+    let lastTime = performance.now();
+
+    function loop(now) {
+        const dt = Math.min(0.05, (now - lastTime) / 1000);
+        lastTime = now;
+        const time = now / 1000;
+
+        if (state === 'MENU' || state === 'LOADING') {
+            drawMenuBackground(time, dt);
+        } else {
+            updateGame(dt, time);
+            drawGameWorld(time);
+        }
+
+        requestAnimationFrame(loop);
+    }
+
+    requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
